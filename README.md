@@ -77,7 +77,36 @@ pip install -r requirements.txt
 
 ---
 
-## 🚀 Quick Start & Live Demonstration Guide
+##  Quick Start & Live Demonstration Guide
+
+### Automated Startup (Recommended)
+
+For a quick and automated start of all services, use the provided shell scripts:
+
+#### Start All Services
+```bash
+chmod +x start_all.sh
+./start_all.sh
+```
+
+This script automatically:
+- Activates the virtual environment
+- Generates baseline telemetry data
+- Trains the Isolation Forest model
+- Starts MLflow tracking server (Port 5000)
+- Launches FastAPI microservice (Port 8000)
+- Starts the telemetry collector daemon
+- Initiates the continuous drift monitor
+
+#### Stop All Services
+```bash
+chmod +x stop_all.sh
+./stop_all.sh
+```
+
+This script gracefully shuts down all running processes.
+
+---
 
 ### Option 1: Direct Python Local Execution
 
