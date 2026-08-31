@@ -1,10 +1,10 @@
-#  Automated MLOps Pipeline for Real-Time Anomaly Detection in Linux Daemons
+# 🛡️ Automated MLOps Pipeline for Real-Time Anomaly Detection in Linux Daemons
 
 An end-to-end MLOps system designed to monitor Linux system telemetry in real time, detect anomalies using machine learning (Isolation Forest), manage model tracking with MLflow, and trigger automated retraining upon statistical data drift (Kolmogorov-Smirnov test).
 
 ---
 
-##  Architecture Overview
+## 📌 Architecture Overview
 
 ```
  ┌─────────────────────────┐      HTTP POST      ┌───────────────────────────────────┐
@@ -21,13 +21,13 @@ An end-to-end MLOps system designed to monitor Linux system telemetry in real ti
 
 ---
 
-##  Features
+## ✨ Features
 
-- ** Real-Time OS Telemetry Harvesting**: Lightweight daemon collecting CPU, Memory, Disk I/O, and Network traffic metrics using `psutil`.
-- ** Machine Learning Anomaly Detection**: Unsupervised Isolation Forest model predicting system anomalies in `<50ms`.
-- ** MLflow Experiment Tracking**: Automated logging of parameters, metrics, contaminated thresholds, and model artifacts.
-- ** Continuous Data Drift Monitoring**: Kolmogorov-Smirnov (KS 2-sample) statistical testing to detect metric distribution drift and trigger automatic model retraining.
-- ** Systemd Service Daemon**: Native Linux service setup for background persistence across reboots.
+- **⚡ Real-Time OS Telemetry Harvesting**: Lightweight daemon collecting CPU, Memory, Disk I/O, and Network traffic metrics using `psutil`.
+- **🤖 Machine Learning Anomaly Detection**: Unsupervised Isolation Forest model predicting system anomalies in `<50ms`.
+- **📊 MLflow Experiment Tracking**: Automated logging of parameters, metrics, contaminated thresholds, and model artifacts.
+- **🔄 Continuous Data Drift Monitoring**: Kolmogorov-Smirnov (KS 2-sample) statistical testing to detect metric distribution drift and trigger automatic model retraining.
+- **⚙️ Systemd Service Daemon**: Native Linux service setup for background persistence across reboots.
 - **🐳 Docker & Local Deployment Options**: Support for Docker Compose orchestration as well as native virtualenv runtimes.
 
 ---
@@ -77,7 +77,7 @@ pip install -r requirements.txt
 
 ---
 
-##  Quick Start & Live Demonstration Guide
+## 🚀 Quick Start & Live Demonstration Guide
 
 ### Automated Startup (Recommended)
 
@@ -129,7 +129,7 @@ mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./
 source proenv/bin/activate
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
->  Access Swagger Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+> ⚡ Access Swagger Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 #### Step 4: Run Telemetry Collector Daemon (Terminal 3)
 ```bash
@@ -157,7 +157,7 @@ docker-compose logs -f
 
 ---
 
-##  Register Daemon as a Systemd Service
+## ⚙️ Register Daemon as a Systemd Service
 
 To register and run the collector as a system background service:
 
@@ -170,7 +170,7 @@ sudo systemctl status systemmonitor.service
 
 ---
 
-##  Stress Testing & Anomaly Verification
+## 🔥 Stress Testing & Anomaly Verification
 
 Simulate high system load to verify live anomaly detection:
 
