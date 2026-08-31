@@ -16,7 +16,8 @@ app = FastAPI(title="Linux Telemetry Anomaly API", version="1.0.0")
 
 # Global model variable & history buffer
 model_pipeline = None
-recent_history = deque(maxlen=60) # last 60 data ticks
+recent_history = deque(maxlen=300) # last 300 data ticks (5 mins)
+total_anomalies_count = 0
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "isolation_forest.joblib")
 RECENT_DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recent_telemetry.csv")
 
@@ -49,6 +50,10 @@ async def predict(payload: TelemetryPayload):
     try:
         prediction = model_pipeline.predict(df)[0]  # returns 1 (normal) or -1 (anomaly)
         score = model_pipeline.decision_function(df)[0]
+        
+        global total_anomalies_count
+        if prediction == -1:
+            total_anomalies_count += 1
         
         # Log to history buffer for real-time dashboard
         history_item = data_dict.copy()
@@ -85,6 +90,7 @@ async def get_live_metrics():
         "status": "active",
         "total_ticks": total_samples,
         "recent_anomalies_count": len(anomalies),
+        "total_anomalies_count": total_anomalies_count,
         "latest": latest,
         "history": history_list
     }
@@ -318,7 +324,7 @@ async def dashboard():
                 document.getElementById('valCpu').innerText = latest.cpu_percent.toFixed(1) + '%';
                 document.getElementById('valMem').innerText = latest.mem_percent.toFixed(1) + '%';
                 document.getElementById('valScore').innerText = latest.anomaly_score.toFixed(3);
-                document.getElementById('valAnomalies').innerText = data.recent_anomalies_count;
+                document.getElementById('valAnomalies').innerText = data.total_anomalies_count !== undefined ? data.total_anomalies_count : data.recent_anomalies_count;
 
                 // Update Status Badge
                 const badge = document.getElementById('statusBadge');

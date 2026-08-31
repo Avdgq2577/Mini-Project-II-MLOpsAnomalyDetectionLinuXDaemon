@@ -74,15 +74,18 @@ def train_model():
         mlflow.log_metric("train_anomalies_detected", num_anomalies)
         logger.info(f"Anomalies detected in training set: {num_anomalies}/{len(X)}")
         
-        # Log model to MLflow
-        mlflow.sklearn.log_model(pipeline, "model")
-        
-        # Also save locally for the API to load on startup without querying MLflow directly
-        # (Though in production, API could pull directly from MLflow model registry)
+        # Save locally for the API to load on startup
         os.makedirs(MODEL_DIR, exist_ok=True)
         local_model_path = os.path.join(MODEL_DIR, "isolation_forest.joblib")
         joblib.dump(pipeline, local_model_path)
         logger.info(f"Model saved locally to {local_model_path}")
+
+        # Log model to MLflow
+        try:
+            mlflow.sklearn.log_model(pipeline, artifact_path="model")
+            logger.info("MLflow model logged successfully.")
+        except Exception as e:
+            logger.warning(f"MLflow model log skipped/warning: {e}")
         
 if __name__ == "__main__":
     train_model()
