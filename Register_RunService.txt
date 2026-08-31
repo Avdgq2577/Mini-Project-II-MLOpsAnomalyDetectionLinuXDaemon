@@ -1,0 +1,97 @@
+sudo cp daemon/systemmonitor.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now systemmonitor.service
+sudo systemctl status systemmonitor.service
+
+
+Viewed Register_RunService.txt:1-5
+Edited Register_RunService.txt
+Ran command: `./proenv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000`
+Ran command: `./proenv/bin/python daemon/telemetry_collector.py`
+Ran command: `pkill -9 -f "uvicorn" || true; pkill -9 -f "telemetry_collector" || true`
+
+Here is the **complete, step-by-step guide to run a live demo** of your MLOps Real-Time Anomaly Detection Linux Daemon project.
+
+---
+
+### 🚀 Complete Live Demonstration Setup
+
+#### Step 1: Register and Start the System Telemetry Service
+
+Run these commands in your Konsole terminal to deploy the service into systemd:
+
+```bash
+sudo cp daemon/systemmonitor.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now systemmonitor.service
+sudo systemctl status systemmonitor.service
+```
+
+---
+
+#### Step 2: Start the MLflow UI Dashboard (Terminal 1)
+
+Open **Terminal 1** and start the MLflow experiment tracking dashboard:
+
+```bash
+source proenv/bin/activate
+mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns --host 0.0.0.0 --port 5000
+```
+> 📊 **Demo Link**: Open your browser at `http://localhost:5000` to show the MLflow dashboard tracking model parameters & metrics.
+
+---
+
+#### Step 3: Launch the FastAPI Anomaly Detection API (Terminal 2)
+
+Open **Terminal 2** and start the model inference microservice:
+
+```bash
+source proenv/bin/activate
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+> ⚡ **Demo Link**: Open `http://localhost:8000/docs` in your browser to view the interactive FastAPI Swagger UI documentation.
+
+---
+
+#### Step 4: Run the Telemetry Collector Daemon (Terminal 3)
+
+Open **Terminal 3** to run the telemetry daemon and stream live OS metrics (CPU, Memory, Disk, Network I/O) to the API:
+
+```bash
+source proenv/bin/activate
+python daemon/telemetry_collector.py
+```
+*You will see live predictions logged every second:*
+```text
+2026-08-26 09:41:14 - TelemetryDaemon - INFO - Sent successfully. Prediction: Normal (Score: 0.12)
+```
+
+---
+
+#### Step 5: Run Continuous Data Drift Monitor (Terminal 4)
+
+Open **Terminal 4** to monitor statistical data drift (using Kolmogorov-Smirnov 2-sample tests) and trigger automated retraining if system behavior shifts:
+
+```bash
+source proenv/bin/activate
+python mlops/drift_monitor.py
+```
+
+---
+
+### 🔥 Live Anomaly & Stress Test (The Demo Wow Factor!)
+
+Open a **new terminal** and simulate a sudden CPU spike and heavy system load to trigger real-time anomalies:
+
+```bash
+# Generate CPU stress for 15 seconds
+stress-ng --cpu 4 --timeout 15s
+```
+
+#### What to observe during the demo:
+1. **Live Anomaly Alert in Terminal 3 (Daemon)**: Watch the prediction switch instantly from `Normal` to `Anomaly`:
+   ```text
+   2026-08-26 09:41:20 - TelemetryDaemon - WARNING - Sent successfully. Prediction: Anomaly (Score: -0.28)
+   ```
+2. **FastAPI Microservice Logs (Terminal 2)**: Logs the high latency/anomalous telemetry payload (<50ms processing time).
+3. **MLflow Dashboard (`http://localhost:5000`)**: Refresh to view logged experiment runs, contamination rates, and Isolation Forest hyperparameters.

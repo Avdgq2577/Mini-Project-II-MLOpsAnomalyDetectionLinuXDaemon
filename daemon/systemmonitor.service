@@ -1,0 +1,18 @@
+[Unit]
+Description=MLOps Telemetry Collection Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/AvaGarceus2099/D1/MITWPU-Files-DuringCollege/Sem3/Mini-Project-II-MLOpsAnomalyDetectionLinuXDaemon/daemon
+# Update the path to your python executable or virtual environment python
+ExecStart=/home/AvaGarceus2099/D1/MITWPU-Files-DuringCollege/Sem3/Mini-Project-II-MLOpsAnomalyDetectionLinuXDaemon/proenv/bin/python telemetry_collector.py
+Restart=always
+RestartSec=3
+MemoryHigh=30M
+MemoryMax=50M
+CPUQuota=5%
+
+[Install]
+WantedBy=multi-user.target

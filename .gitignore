@@ -1,0 +1,19 @@
+# Virtual Environments
+proenv/
+venv/
+.venv/
+env/
+
+# MLflow tracking
+mlflow.db
+mlruns/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS metadata
+.DS_Store
+Thumbs.db

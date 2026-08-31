@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mlflow:
+    image: python:3.10-slim
+    container_name: mlflow_server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+      - ./mlflow.db:/mlflow.db
+    command: >
+      bash -c "pip install mlflow &&
+               mlflow server
+               --backend-store-uri sqlite:///mlflow.db
+               --default-artifact-root /mlruns
+               --host 0.0.0.0
+               --port 5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: anomaly_api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mlflow
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./api:/app/api
+      - ./mlruns:/app/mlruns
+      - ./mlflow.db:/app/mlflow.db
