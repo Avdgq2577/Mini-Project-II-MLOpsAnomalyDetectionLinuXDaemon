@@ -65,8 +65,16 @@ def main():
                 response = requests.post(API_URL, json=metrics, timeout=2)
                 if response.status_code == 200:
                     result = response.json()
-                    status = "Anomaly" if result.get("anomaly_flag") == -1 else "Normal"
-                    logger.info(f"Sent successfully. Prediction: {status} (Score: {result.get('anomaly_score', 0):.2f})")
+                    is_anomaly = result.get("anomaly_flag") == -1
+                    score = result.get("anomaly_score", 0.0)
+                    severity = result.get("severity", "NOMINAL")
+                    
+                    if is_anomaly:
+                        causes = "; ".join(result.get("suspected_causes", []))
+                        actions = "; ".join(result.get("recommended_actions", []))
+                        logger.warning(f"ANOMALY DETECTED [{severity}] (Score: {score:.3f}) | Causes: {causes} | Actions: {actions}")
+                    else:
+                        logger.info(f"Nominal System Status (Score: {score:.3f})")
                 else:
                     logger.warning(f"API returned status {response.status_code}")
             except requests.exceptions.RequestException as e:

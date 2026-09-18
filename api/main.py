@@ -5,6 +5,8 @@ import pandas as pd
 import os
 import logging
 import time
+import uuid
+import json
 import subprocess
 from collections import deque
 from api.schemas import TelemetryPayload, PredictionResponse
@@ -12,18 +14,99 @@ from api.schemas import TelemetryPayload, PredictionResponse
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("FastAPI")
 
-app = FastAPI(title="Linux Telemetry Anomaly API", version="1.0.0")
+app = FastAPI(title="Linux Telemetry Anomaly API", version="1.1.0")
 
-# Global model variable & history buffer
+# Paths and global variables
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
+ANOMALY_JSONL_LOG = os.path.join(LOGS_DIR, "anomalies.jsonl")
+ANOMALY_TEXT_LOG = os.path.join(LOGS_DIR, "anomalies.log")
+
 model_pipeline = None
 recent_history = deque(maxlen=300) # last 300 data ticks (5 mins)
 total_anomalies_count = 0
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "isolation_forest.joblib")
 RECENT_DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recent_telemetry.csv")
 
+def analyze_root_cause(data_dict: dict, score: float, prediction: int):
+    if prediction == 1:
+        return "NOMINAL", [], []
+    
+    suspected_causes = []
+    recommended_actions = []
+    
+    cpu = data_dict.get("cpu_percent", 0.0)
+    if cpu > 75.0:
+        suspected_causes.append(f"High CPU utilization ({cpu:.1f}%). High compute workload or runaway process.")
+        recommended_actions.append("Run 'top -b -n 1' or 'pidstat -u 1 5' to identify high-CPU processes.")
+    
+    mem = data_dict.get("mem_percent", 0.0)
+    if mem > 80.0:
+        suspected_causes.append(f"Elevated RAM usage ({mem:.1f}%). Possible memory leak or large buffer allocation.")
+        recommended_actions.append("Execute 'ps aux --sort=-%mem | head -n 10' to inspect memory distribution.")
+    
+    ctx = data_dict.get("ctx_switches", 0)
+    if ctx > 200000:
+        suspected_causes.append(f"High context switch frequency ({ctx:,} switches/sec). Thread thrashing detected.")
+        recommended_actions.append("Audit thread concurrency pool size and worker thread settings.")
+    
+    disk_write = data_dict.get("disk_write_bytes", 0)
+    disk_read = data_dict.get("disk_read_bytes", 0)
+    if disk_write > 50_000_000 or disk_read > 50_000_000:
+        suspected_causes.append(f"Heavy Disk I/O activity (Write: {disk_write/1e6:.1f} MB, Read: {disk_read/1e6:.1f} MB).")
+        recommended_actions.append("Execute 'iotop -o -b -n 1' to trace active disk read/write processes.")
+    
+    net_sent = data_dict.get("net_bytes_sent", 0)
+    net_recv = data_dict.get("net_bytes_recv", 0)
+    if net_sent > 20_000_000 or net_recv > 20_000_000:
+        suspected_causes.append(f"Spike in network traffic (Sent: {net_sent/1e6:.1f} MB, Recv: {net_recv/1e6:.1f} MB).")
+        recommended_actions.append("Execute 'ss -tulpn' or 'iftop' to inspect active network sockets.")
+
+    if not suspected_causes:
+        suspected_causes.append("Multi-metric statistical anomaly detected by Isolation Forest decision boundary.")
+        recommended_actions.append("Check system logs ('journalctl -xe') for hardware or system daemon warnings.")
+    
+    if score < -0.25:
+        severity = "CRITICAL"
+    elif score < -0.15:
+        severity = "HIGH"
+    elif score < -0.05:
+        severity = "MEDIUM"
+    else:
+        severity = "LOW"
+
+    return severity, suspected_causes, recommended_actions
+
+def log_anomaly_event(event_data: dict):
+    try:
+        os.makedirs(LOGS_DIR, exist_ok=True)
+        with open(ANOMALY_JSONL_LOG, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event_data) + "\n")
+        
+        timestamp = event_data.get("timestamp_utc", "")
+        event_id = event_data.get("event_id", "")
+        severity = event_data.get("severity", "")
+        score = event_data.get("anomaly_score", 0.0)
+        causes = "\n  - ".join(event_data.get("suspected_causes", []))
+        actions = "\n  - ".join(event_data.get("recommended_actions", []))
+        
+        formatted_entry = (
+            f"================================================================================\n"
+            f"[{timestamp}] ANOMALY DETECTED | Event ID: {event_id} | Severity: {severity}\n"
+            f"Isolation Forest Score: {score:.4f}\n"
+            f"Suspected Causes:\n  - {causes}\n"
+            f"Recommended Actions:\n  - {actions}\n"
+            f"================================================================================\n"
+        )
+        with open(ANOMALY_TEXT_LOG, "a", encoding="utf-8") as f:
+            f.write(formatted_entry)
+    except Exception as e:
+        logger.error(f"Failed to log anomaly event: {e}")
+
 @app.on_event("startup")
 async def load_model():
     global model_pipeline
+    os.makedirs(LOGS_DIR, exist_ok=True)
     if os.path.exists(MODEL_PATH):
         try:
             model_pipeline = joblib.load(MODEL_PATH)
@@ -48,18 +131,34 @@ async def predict(payload: TelemetryPayload):
     df = pd.DataFrame([data_dict])
     
     try:
-        prediction = model_pipeline.predict(df)[0]  # returns 1 (normal) or -1 (anomaly)
-        score = model_pipeline.decision_function(df)[0]
+        prediction = int(model_pipeline.predict(df)[0])  # 1 (normal) or -1 (anomaly)
+        score = float(model_pipeline.decision_function(df)[0])
+        
+        severity, causes, actions = analyze_root_cause(data_dict, score, prediction)
         
         global total_anomalies_count
         if prediction == -1:
             total_anomalies_count += 1
+            event_id = str(uuid.uuid4())[:8]
+            event_record = {
+                "event_id": event_id,
+                "timestamp_utc": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+                "anomaly_score": score,
+                "severity": severity,
+                "metrics": data_dict,
+                "suspected_causes": causes,
+                "recommended_actions": actions
+            }
+            log_anomaly_event(event_record)
         
         # Log to history buffer for real-time dashboard
         history_item = data_dict.copy()
         history_item['timestamp'] = time.strftime("%H:%M:%S")
-        history_item['anomaly_flag'] = int(prediction)
-        history_item['anomaly_score'] = float(score)
+        history_item['anomaly_flag'] = prediction
+        history_item['anomaly_score'] = score
+        history_item['severity'] = severity
+        history_item['suspected_causes'] = causes
+        history_item['recommended_actions'] = actions
         recent_history.append(history_item)
         
         # Log to recent telemetry CSV for drift detection
@@ -70,8 +169,11 @@ async def predict(payload: TelemetryPayload):
         
         return PredictionResponse(
             status="success",
-            anomaly_flag=int(prediction),
-            anomaly_score=float(score),
+            anomaly_flag=prediction,
+            anomaly_score=score,
+            severity=severity,
+            suspected_causes=causes,
+            recommended_actions=actions,
             message="Anomalous behavior detected" if prediction == -1 else "Nominal operation"
         )
         
@@ -95,12 +197,25 @@ async def get_live_metrics():
         "history": history_list
     }
 
+@app.get("/api/v1/anomaly-logs")
+async def get_anomaly_logs(limit: int = 50):
+    if not os.path.exists(ANOMALY_JSONL_LOG):
+        return {"total": 0, "logs": []}
+    
+    logs = []
+    try:
+        with open(ANOMALY_JSONL_LOG, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    logs.append(json.loads(line.strip()))
+        return {"total": len(logs), "logs": logs[-limit:]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read anomaly logs: {e}")
+
 def run_stress_task():
     try:
-        # Try running stress-ng if available
         subprocess.run(["stress-ng", "--cpu", "4", "--timeout", "10s"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
-        # Fallback python intensive CPU load for 10s
         end_time = time.time() + 10
         while time.time() < end_time:
             _ = [i**2 for i in range(100000)]
@@ -133,6 +248,7 @@ async def dashboard():
             --accent-cyan: #06b6d4;
             --accent-green: #10b981;
             --accent-red: #ef4444;
+            --accent-orange: #f97316;
             --accent-purple: #8b5cf6;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
@@ -186,11 +302,18 @@ async def dashboard():
         .logs-card {
             background: var(--card-bg); backdrop-filter: blur(12px); padding: 20px; border-radius: 16px; border: 1px solid var(--border-color);
         }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.88rem; }
         th { text-align: left; padding: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
-        td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .tag-anomaly { color: var(--accent-red); font-weight: 700; background: rgba(239, 68, 68, 0.15); padding: 4px 10px; border-radius: 6px; }
-        .tag-normal { color: var(--accent-green); font-weight: 600; background: rgba(16, 185, 129, 0.15); padding: 4px 10px; border-radius: 6px; }
+        td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+        
+        .sev-CRITICAL { color: #f87171; font-weight: 700; background: rgba(239, 68, 68, 0.25); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.4); }
+        .sev-HIGH { color: #fb923c; font-weight: 700; background: rgba(249, 115, 22, 0.2); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(249,115,22,0.4); }
+        .sev-MEDIUM { color: #facc15; font-weight: 600; background: rgba(234, 179, 8, 0.15); padding: 3px 8px; border-radius: 6px; }
+        .sev-LOW { color: #38bdf8; font-weight: 600; background: rgba(56, 189, 248, 0.15); padding: 3px 8px; border-radius: 6px; }
+        .sev-NOMINAL { color: var(--accent-green); font-weight: 600; background: rgba(16, 185, 129, 0.15); padding: 3px 8px; border-radius: 6px; }
+        
+        .cause-list { margin: 0; padding-left: 16px; color: #e2e8f0; font-size: 0.83rem; }
+        .action-list { margin: 0; padding-left: 16px; color: #38bdf8; font-size: 0.83rem; }
     </style>
 </head>
 <body>
@@ -198,7 +321,7 @@ async def dashboard():
     <div class="header">
         <div class="title-area">
             <h1>Linux Daemon MLOps Anomaly Detection</h1>
-            <p>Real-Time System Telemetry & Isolation Forest Inference Service</p>
+            <p>Real-Time System Telemetry & Root Cause Diagnostic Engine</p>
         </div>
         <div class="controls-area">
             <div id="statusBadge" class="status-badge badge-normal">
@@ -227,7 +350,7 @@ async def dashboard():
         <div class="metric-card">
             <div class="metric-label">Total Anomalies</div>
             <div class="metric-value" id="valAnomalies" style="color: var(--accent-red);">0</div>
-            <div class="metric-sub">Detected in Current Session</div>
+            <div class="metric-sub">Logged to logs/anomalies.jsonl</div>
         </div>
     </div>
 
@@ -247,27 +370,27 @@ async def dashboard():
     </div>
 
     <div class="logs-card">
-        <div class="chart-title">Live Telemetry Prediction Feed</div>
+        <div class="chart-title">Live Telemetry & Diagnostic Analysis Feed</div>
         <table>
             <thead>
                 <tr>
-                    <th>Timestamp</th>
-                    <th>CPU %</th>
-                    <th>RAM %</th>
-                    <th>Context Switches</th>
-                    <th>Decision Score</th>
-                    <th>Status</th>
+                    <th style="width:90px;">Time</th>
+                    <th style="width:70px;">CPU %</th>
+                    <th style="width:70px;">RAM %</th>
+                    <th style="width:90px;">Score</th>
+                    <th style="width:100px;">Severity</th>
+                    <th>Suspected Cause(s)</th>
+                    <th>Recommended Operational Actions</th>
                 </tr>
             </thead>
             <tbody id="logsTable">
-                <tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Waiting for telemetry stream from daemon...</td></tr>
+                <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Waiting for telemetry stream from daemon...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
         let telemetryChart, scoreChart;
-        let anomalyCount = 0;
 
         function initCharts() {
             const ctx1 = document.getElementById('telemetryChart').getContext('2d');
@@ -331,7 +454,7 @@ async def dashboard():
                 if (latest.anomaly_flag === -1) {
                     badge.className = 'status-badge badge-anomaly';
                     document.getElementById('statusDot').innerText = '🚨';
-                    document.getElementById('statusText').innerText = 'ANOMALY DETECTED';
+                    document.getElementById('statusText').innerText = `ANOMALY DETECTED (${latest.severity || 'HIGH'})`;
                 } else {
                     badge.className = 'status-badge badge-normal';
                     document.getElementById('statusDot').innerText = '🟢';
@@ -361,13 +484,24 @@ async def dashboard():
                 recentSlice.forEach(item => {
                     const tr = document.createElement('tr');
                     const isAnomaly = item.anomaly_flag === -1;
+                    const sev = item.severity || (isAnomaly ? 'HIGH' : 'NOMINAL');
+                    
+                    const causesHtml = (item.suspected_causes && item.suspected_causes.length > 0)
+                        ? `<ul class="cause-list">${item.suspected_causes.map(c => `<li>${c}</li>`).join('')}</ul>`
+                        : `<span style="color:var(--text-muted);">None (Nominal)</span>`;
+                        
+                    const actionsHtml = (item.recommended_actions && item.recommended_actions.length > 0)
+                        ? `<ul class="action-list">${item.recommended_actions.map(a => `<li><code>${a}</code></li>`).join('')}</ul>`
+                        : `<span style="color:var(--text-muted);">-</span>`;
+
                     tr.innerHTML = `
                         <td>${item.timestamp}</td>
                         <td>${item.cpu_percent.toFixed(1)}%</td>
                         <td>${item.mem_percent.toFixed(1)}%</td>
-                        <td>${item.ctx_switches.toLocaleString()}</td>
-                        <td style="color:${isAnomaly ? '#ef4444' : '#10b981'}; font-weight:600;">${item.anomaly_score.toFixed(4)}</td>
-                        <td><span class="${isAnomaly ? 'tag-anomaly' : 'tag-normal'}">${isAnomaly ? 'ANOMALY' : 'NORMAL'}</span></td>
+                        <td style="color:${isAnomaly ? '#ef4444' : '#10b981'}; font-weight:600;">${item.anomaly_score.toFixed(3)}</td>
+                        <td><span class="sev-${sev}">${sev}</span></td>
+                        <td>${causesHtml}</td>
+                        <td>${actionsHtml}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -396,4 +530,3 @@ async def dashboard():
 </body>
 </html>
     """
-

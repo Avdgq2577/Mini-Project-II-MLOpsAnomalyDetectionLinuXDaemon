@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import List, Optional
 
 class TelemetryPayload(BaseModel):
     cpu_percent: float
@@ -14,4 +15,8 @@ class PredictionResponse(BaseModel):
     status: str
     anomaly_flag: int
     anomaly_score: float
+    severity: str = "NOMINAL"
+    suspected_causes: List[str] = []
+    recommended_actions: List[str] = []
     message: str
+
