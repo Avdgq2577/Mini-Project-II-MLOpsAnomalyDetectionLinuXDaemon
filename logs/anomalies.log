@@ -1,0 +1,84 @@
+================================================================================
+[2026-09-18 06:26:55 UTC] ANOMALY DETECTED | Event ID: 04f40dac | Severity: LOW
+Isolation Forest Score: -0.0155
+Suspected Causes:
+  - High CPU utilization (76.3%). High compute workload or runaway process.
+  - High context switch frequency (22,210,595 switches/sec). Thread thrashing detected.
+  - Heavy Disk I/O activity (Write: 31919.8 MB, Read: 39733.6 MB).
+  - Spike in network traffic (Sent: 84.1 MB, Recv: 3244.7 MB).
+Recommended Actions:
+  - Run 'top -b -n 1' or 'pidstat -u 1 5' to identify high-CPU processes.
+  - Audit thread concurrency pool size and worker thread settings.
+  - Execute 'iotop -o -b -n 1' to trace active disk read/write processes.
+  - Execute 'ss -tulpn' or 'iftop' to inspect active network sockets.
+================================================================================
+================================================================================
+[2026-09-18 06:26:56 UTC] ANOMALY DETECTED | Event ID: 2189991b | Severity: LOW
+Isolation Forest Score: -0.0290
+Suspected Causes:
+  - High CPU utilization (100.0%). High compute workload or runaway process.
+  - High context switch frequency (22,215,156 switches/sec). Thread thrashing detected.
+  - Heavy Disk I/O activity (Write: 31919.8 MB, Read: 39734.0 MB).
+  - Spike in network traffic (Sent: 84.1 MB, Recv: 3249.5 MB).
+Recommended Actions:
+  - Run 'top -b -n 1' or 'pidstat -u 1 5' to identify high-CPU processes.
+  - Audit thread concurrency pool size and worker thread settings.
+  - Execute 'iotop -o -b -n 1' to trace active disk read/write processes.
+  - Execute 'ss -tulpn' or 'iftop' to inspect active network sockets.
+================================================================================
+================================================================================
+[2026-09-18 06:26:57 UTC] ANOMALY DETECTED | Event ID: 1d3c107f | Severity: LOW
+Isolation Forest Score: -0.0259
+Suspected Causes:
+  - High CPU utilization (99.8%). High compute workload or runaway process.
+  - High context switch frequency (22,219,741 switches/sec). Thread thrashing detected.
+  - Heavy Disk I/O activity (Write: 31919.8 MB, Read: 39734.0 MB).
+  - Spike in network traffic (Sent: 84.2 MB, Recv: 3255.0 MB).
+Recommended Actions:
+  - Run 'top -b -n 1' or 'pidstat -u 1 5' to identify high-CPU processes.
+  - Audit thread concurrency pool size and worker thread settings.
+  - Execute 'iotop -o -b -n 1' to trace active disk read/write processes.
+  - Execute 'ss -tulpn' or 'iftop' to inspect active network sockets.
+================================================================================
+================================================================================
+[2026-09-18 06:26:58 UTC] ANOMALY DETECTED | Event ID: 847d80e9 | Severity: LOW
+Isolation Forest Score: -0.0199
+Suspected Causes:
+  - High CPU utilization (100.0%). High compute workload or runaway process.
+  - High context switch frequency (22,224,971 switches/sec). Thread thrashing detected.
+  - Heavy Disk I/O activity (Write: 31920.3 MB, Read: 39734.7 MB).
+  - Spike in network traffic (Sent: 84.2 MB, Recv: 3258.0 MB).
+Recommended Actions:
+  - Run 'top -b -n 1' or 'pidstat -u 1 5' to identify high-CPU processes.
+  - Audit thread concurrency pool size and worker thread settings.
+  - Execute 'iotop -o -b -n 1' to trace active disk read/write processes.
+  - Execute 'ss -tulpn' or 'iftop' to inspect active network sockets.
+================================================================================
+================================================================================
+[2026-09-18 06:27:00 UTC] ANOMALY DETECTED | Event ID: bf31c39f | Severity: LOW
+Isolation Forest Score: -0.0177
+Suspected Causes:
+  - High CPU utilization (100.0%). High compute workload or runaway process.
+  - High context switch frequency (22,232,093 switches/sec). Thread thrashing detected.
+  - Heavy Disk I/O activity (Write: 31920.5 MB, Read: 40181.0 MB).
+  - Spike in network traffic (Sent: 84.2 MB, Recv: 3260.8 MB).
+Recommended Actions:
+  - Run 'top -b -n 1' or 'pidstat -u 1 5' to identify high-CPU processes.
+  - Audit thread concurrency pool size and worker thread settings.
+  - Execute 'iotop -o -b -n 1' to trace active disk read/write processes.
+  - Execute 'ss -tulpn' or 'iftop' to inspect active network sockets.
+================================================================================
+================================================================================
+[2026-09-18 06:27:03 UTC] ANOMALY DETECTED | Event ID: a8b837d6 | Severity: LOW
+Isolation Forest Score: -0.0136
+Suspected Causes:
+  - High CPU utilization (99.8%). High compute workload or runaway process.
+  - High context switch frequency (22,248,403 switches/sec). Thread thrashing detected.
+  - Heavy Disk I/O activity (Write: 31922.5 MB, Read: 40341.5 MB).
+  - Spike in network traffic (Sent: 84.2 MB, Recv: 3264.9 MB).
+Recommended Actions:
+  - Run 'top -b -n 1' or 'pidstat -u 1 5' to identify high-CPU processes.
+  - Audit thread concurrency pool size and worker thread settings.
+  - Execute 'iotop -o -b -n 1' to trace active disk read/write processes.
+  - Execute 'ss -tulpn' or 'iftop' to inspect active network sockets.
+================================================================================
