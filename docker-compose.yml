@@ -1,24 +1,24 @@
 services:
   mlflow:
-    image: python:3.10-slim
+    image: ghcr.io/mlflow/mlflow:v2.17.2   # pin a version you've tested
     container_name: mlflow_server
     ports:
       - "5000:5000"
     volumes:
-      - ./mlruns:/mlruns
-      - ./mlflow.db:/mlflow.db
+      - mlflow_data:/mlflow
     command: >
-      bash -c "pip install mlflow &&
-               mlflow server
-               --backend-store-uri sqlite:///mlflow.db
-               --default-artifact-root /mlruns
-               --host 0.0.0.0
-               --port 5000"
+      mlflow server
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts
+      --serve-artifacts
+      --host 0.0.0.0
+      --port 5000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 20s
 
   api:
     build:
@@ -28,10 +28,12 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - mlflow
+      mlflow:
+        condition: service_healthy
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
       - ./api:/app/api
-      - ./mlruns:/app/mlruns
-      - ./mlflow.db:/app/mlflow.db
+
+volumes:
+  mlflow_data:
